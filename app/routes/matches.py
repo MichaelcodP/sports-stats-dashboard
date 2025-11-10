@@ -13,12 +13,8 @@ async def get_latest_match(team1: str, team2: str):
     """
     try:
         async with httpx.AsyncClient() as client:
-            resp1 = await client.get(
-                f"{BASE_URL}/searchteams.php", params={"t": team1}
-            )
-            resp2 = await client.get(
-                f"{BASE_URL}/searchteams.php", params={"t": team2}
-            )
+            resp1 = await client.get(f"{BASE_URL}/searchteams.php", params={"t": team1})
+            resp2 = await client.get(f"{BASE_URL}/searchteams.php", params={"t": team2})
 
             data1 = resp1.json()
             data2 = resp2.json()
@@ -42,8 +38,7 @@ async def get_latest_match(team1: str, team2: str):
                 (
                     e
                     for e in last_events
-                    if e["idHomeTeam"] == team2_id or
-                    e["idAwayTeam"] == team2_id
+                    if e["idHomeTeam"] == team2_id or e["idAwayTeam"] == team2_id
                 ),
                 None,
             )
@@ -59,8 +54,7 @@ async def get_latest_match(team1: str, team2: str):
                     (
                         e
                         for e in next_events
-                        if e["idHomeTeam"] == team2_id or
-                        e["idAwayTeam"] == team2_id
+                        if e["idHomeTeam"] == team2_id or e["idAwayTeam"] == team2_id
                     ),
                     None,
                 )
@@ -93,9 +87,7 @@ async def search_team(name: str):
     """
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{BASE_URL}/searchteams.php", params={"t": name}
-            )
+            resp = await client.get(f"{BASE_URL}/searchteams.php", params={"t": name})
             data = resp.json()
 
         if not data.get("teams"):
