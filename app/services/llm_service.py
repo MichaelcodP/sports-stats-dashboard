@@ -7,8 +7,6 @@ from dotenv import load_dotenv
 from app.models.schemas import MatchAnalysis, MatchData
 from app.services.data_processor import DataProcessor
 
-load_dotenv()
-
 from .llm_providers import (
     OpenAIProvider,
     GeminiProvider,
@@ -17,6 +15,8 @@ from .llm_providers import (
     TransientLLMError,
     retry_with_backoff,
 )
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 

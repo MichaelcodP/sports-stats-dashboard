@@ -23,7 +23,7 @@ async def analyze_match(team1: str, team2: str):
             "teams": f"{match_data.home_team} vs {match_data.away_team}",
             "date": match_data.date_event,
             "stadium": match_data.stadium,
-            "llm_analysis": analysis.dict(),
+            "llm_analysis": analysis.model_dump(),
         }
 
     except HTTPException:
