@@ -5,7 +5,7 @@ from app.models.schemas import MatchAnalysis
 
 @pytest.mark.asyncio
 async def test_parse_valid_json(monkeypatch):
-    service = LLMService(api_key="fake")
+    service = LLMService()
 
     fake_response = """
     {
@@ -25,7 +25,7 @@ async def test_parse_valid_json(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_parse_with_extra_text(monkeypatch):
-    service = LLMService(api_key="fake")
+    service = LLMService()
     messy_response = (
         "Here is your analysis:\n"
         + """
@@ -47,7 +47,7 @@ async def test_parse_with_extra_text(monkeypatch):
 @pytest.mark.asyncio
 async def test_parse_invalid_json(monkeypatch):
     """If the JSON is broken, we expect a ValueError."""
-    service = LLMService(api_key="fake")
+    service = LLMService()
     bad_response = "{summary: 'invalid json'}"
 
     with pytest.raises(ValueError):
