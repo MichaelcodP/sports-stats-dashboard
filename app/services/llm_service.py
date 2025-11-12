@@ -1,123 +1,160 @@
-import asyncio
-import json
 import os
+import json
+import logging
+from typing import Optional, List
 from dotenv import load_dotenv
-from openai import AsyncOpenAI
-import httpx
+
 from app.models.schemas import MatchAnalysis, MatchData
 from app.services.data_processor import DataProcessor
 
 load_dotenv()
 
+from .llm_providers import (
+    OpenAIProvider,
+    GeminiProvider,
+    GroqProvider,
+    FatalLLMError,
+    TransientLLMError,
+    retry_with_backoff,
+)
+
+logger = logging.getLogger(__name__)
+
 
 class LLMService:
-    """Service for LLM-based operations."""
+    """Orchestrates multiple LLM providers with retries and fallback."""
 
-    def __init__(self):
-        self.keys = {
-            "openai": os.getenv("OPENAI_API_KEY"),
-            "gemini": os.getenv("GEMINI_API_KEY"),
-            "groq": os.getenv("GROQ_API_KEY"),
-        }
+    def __init__(self, providers: Optional[List] = None):
+
         self.data_processor = DataProcessor()
 
+        if providers is not None:
+            # Allow injecting fake providers for tests
+            self.providers = providers
+            return
+
+        # Read keys from env
+        openai_key = os.getenv("OPENAI_API_KEY")
+        gemini_key = os.getenv("GEMINI_API_KEY")
+        groq_key = os.getenv("GROQ_API_KEY")
+
+        mapping = {
+            "openai": OpenAIProvider(openai_key),
+            "gemini": GeminiProvider(gemini_key),
+            "groq": GroqProvider(groq_key),
+        }
+
+        # Priority order e.g. "openai,gemini,groq" (default)
+        priority_env = os.getenv("LLM_PRIORITY", "openai,gemini,groq")
+        priority = [p.strip() for p in priority_env.split(",") if p.strip()]
+
+        # Build providers in priority order (only include existing mapping keys)
+        self.providers = [mapping[p] for p in priority if p in mapping]
+
     async def analyze_match(self, match: MatchData) -> MatchAnalysis:
+        """Try providers in order, using retry/backoff on transient errors."""
         formatted_data = self.data_processor.format_for_llm(match)
+
         prompt = f"""
 Respond with ONLY valid JSON matching this schema (no explanatory text):
 
 {{
-      "summary": "<2-3 sentence summary>",
-      "key_insights": ["insight1", "insight2", "..."],
-      "performance_analysis": "<detailed text>",
-      "prediction": "<prediction string or null>"
+  "summary": "<2-3 sentence summary>",
+  "key_insights": ["insight1", "insight2", "..."],
+  "performance_analysis": "<detailed text>",
+  "prediction": "<prediction string or null>"
 }}
 
 Now analyze this match:
 {formatted_data}
 """
 
-        # Each LLM is called in parallel
-        tasks = [
-            self._call_llm(provider, prompt)
-            for provider, key in self.keys.items()
-            if key
-        ]
+        if not self.providers:
+            raise RuntimeError(
+                "No LLM providers configured (check env keys and LLM_PRIORITY)"
+            )
 
-        for coro in asyncio.as_completed(tasks):
+        # Try each provider sequentially. Use retry_with_backoff to retry transient failures.
+        for prov in self.providers:
             try:
-                analysis_text = await coro
-                return self._parse_analysis(analysis_text)
-            except Exception as e:
-                print(f"LLM failed: {e}")
 
+                async def call() -> str:
+                    # provider.generate(prompt) is expected to raise TransientLLMError or FatalLLMError on problems
+                    return await prov.generate(prompt)
+
+                # specify retries (e.g., 2 retries => 3 attempts)
+                text = await retry_with_backoff(call, retries=2, base_delay=0.5)
+                # parse and return first successful response
+                return self._parse_analysis(text)
+
+            except FatalLLMError as e:
+                # non-retryable / provider won't help (e.g., quota, missing key)
+                logger.warning(
+                    "Provider %s fatal error: %s",
+                    getattr(prov, "name", str(prov)),
+                    str(e),
+                )
+                continue
+            except TransientLLMError as e:
+                # retries exhausted but provider failed transiently
+                logger.warning(
+                    "Provider %s transient failure after retries: %s",
+                    getattr(prov, "name", str(prov)),
+                    str(e),
+                )
+                continue
+            except Exception as e:
+                # unexpected error from provider; skip to next
+                logger.exception(
+                    "Provider %s unexpected error: %s",
+                    getattr(prov, "name", str(prov)),
+                    str(e),
+                )
+                continue
+
+        # If all providers fail:
+        logger.error("All LLM providers failed.")
         raise RuntimeError("All LLM providers failed.")
 
-    async def _call_llm(self, provider: str, prompt: str) -> str:
-        if provider == "openai":
-            client = AsyncOpenAI(api_key=self.keys["openai"])
-            response = await client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a professional soccer analyst.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.7,
-                max_tokens=500,
-            )
-            return response.choices[0].message.content.strip()
-
-        elif provider == "gemini":
-            async with httpx.AsyncClient() as client:
-                url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
-                headers = {"Authorization": f"Bearer {self.keys['gemini']}"}
-                payload = {"contents": [{"parts": [{"text": prompt}]}]}
-                resp = await client.post(url, headers=headers, json=payload)
-                resp.raise_for_status()
-                result = resp.json()
-                return result["candidates"][0]["content"]["parts"][0]["text"].strip()
-
-        elif provider == "groq":
-            async with httpx.AsyncClient() as client:
-                url = "https://api.groq.com/v1/chat/completions"
-                headers = {"Authorization": f"Bearer {self.keys['groq']}"}
-                payload = {
-                    "model": "mixtral-8x7b-32768",
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a professional soccer analyst.",
-                        },
-                        {"role": "user", "content": prompt},
-                    ],
-                    "temperature": 0.7,
-                    "max_tokens": 500,
-                }
-                resp = await client.post(url, headers=headers, json=payload)
-                resp.raise_for_status()
-                result = resp.json()
-                return result["choices"][0]["message"]["content"].strip()
-
-        raise ValueError(f"Unknown LLM provider: {provider}")
-
     def _parse_analysis(self, text: str) -> MatchAnalysis:
-        """Parse LLM response into structured JSON format."""
+        """
+        Parse text returned by LLM. Prefer JSON text; fallback to extracting the first JSON object
+        from the response if there is extra commentary around it.
+        """
+        text = (text or "").strip()
+        if not text:
+            raise ValueError("Empty response from LLM provider")
+
+        # Try JSON directly first
         try:
             data = json.loads(text)
         except json.JSONDecodeError:
-            # Back-up for extra text before JSON
+            # Fallback: find the first {...} block and parse that
             start = text.find("{")
             end = text.rfind("}") + 1
-            if start == -1 or end == -1:
+            if start == -1 or end == 0:
                 raise ValueError("No JSON found in LLM response")
-            data = json.loads(text[start:end])
+            json_text = text[start:end]
+            try:
+                data = json.loads(json_text)
+            except json.JSONDecodeError as e:
+                raise ValueError("Failed to decode JSON from LLM response") from e
+
+        # Coerce fields safely
+        summary = data.get("summary", "") if isinstance(data, dict) else ""
+        key_insights = data.get("key_insights", []) if isinstance(data, dict) else []
+        if not isinstance(key_insights, list):
+            # defensive: coerce single string into list
+            key_insights = [str(key_insights)]
+        key_insights = [str(i).strip() for i in key_insights if str(i).strip()]
+        performance_analysis = (
+            data.get("performance_analysis", "") if isinstance(data, dict) else ""
+        )
+        prediction = data.get("prediction") if isinstance(data, dict) else None
 
         return MatchAnalysis(
-            summary=data.get("summary", ""),
-            key_insights=data.get("key_insights", []),
-            performance_analysis=data.get("performance_analysis", ""),
-            prediction=data.get("prediction"),
+            summary=summary,
+            key_insights=key_insights,
+            performance_analysis=performance_analysis,
+            prediction=prediction,
         )
