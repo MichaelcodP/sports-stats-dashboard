@@ -1,10 +1,12 @@
 import json
 import os
 import re
+from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from app.models.schemas import MatchAnalysis, MatchData
 from app.services.data_processor import DataProcessor
 
+load_dotenv()
 
 class LLMService:
     """Service for LLM-based operations."""
