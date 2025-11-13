@@ -1,6 +1,7 @@
 import httpx
 from app.models.schemas import TeamInfo, MatchData
 from fastapi import HTTPException
+from functools import lru_cache
 
 
 class TheSportsDBService:
@@ -15,6 +16,7 @@ class TheSportsDBService:
         """Close the HTTP client."""
         await self.client.aclose()
 
+    @lru_cache(maxsize=128)
     async def search_team(self, team_name: str) -> TeamInfo:
         """Search for a team by name."""
         try:
@@ -43,6 +45,7 @@ class TheSportsDBService:
                 status_code=500, detail=f"Error fetching team: {str(e)}"
             )
 
+    @lru_cache(maxsize=128)
     async def get_latest_events(self, team_id: str) -> list:
         """Get latest events for a team."""
         try:
@@ -58,6 +61,7 @@ class TheSportsDBService:
                 status_code=500, detail=f"Error fetching events: {str(e)}"
             )
 
+    @lru_cache(maxsize=128)
     async def get_next_events(self, team_id: str) -> list:
         """Get upcoming events for a team."""
         try:
@@ -130,3 +134,19 @@ class TheSportsDBService:
             stadium=latest_match.get("strVenue"),
             league=latest_match.get("strLeague"),
         )
+
+    async def get_recent_matches(self, team_id: str, limit: int = 10):
+        """Fetch recent matches for a given team."""
+        try:
+            response = await self.client.get(
+                f"{self.BASE_URL}/eventslast.php", params={"id": team_id}
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            matches = data.get("results", []) or []
+            return matches[:limit]
+        except httpx.HTTPError as e:
+            raise HTTPException(
+                status_code=500, detail=f"Error fetching recent matches: {str(e)}"
+            )
