@@ -1,6 +1,7 @@
 from typing import List, Dict
 from threading import Lock
 
+
 class MatchStore:
     def __init__(self):
         self.matches: List[Dict] = []
@@ -18,7 +19,8 @@ class MatchStore:
         """Filter matches by team name."""
         with self._lock:
             return [
-                match for match in self.matches
+                match
+                for match in self.matches
                 if match.get("strHomeTeam", "").lower() == team_name.lower()
                 or match.get("strAwayTeam", "").lower() == team_name.lower()
             ]
@@ -27,14 +29,17 @@ class MatchStore:
         """Filter matches by team and opponent."""
         with self._lock:
             return [
-                match for match in self.matches
+                match
+                for match in self.matches
                 if (
                     match.get("strHomeTeam", "").lower() == team_name.lower()
                     and match.get("strAwayTeam", "").lower() == opponent_name.lower()
-                ) or (
+                )
+                or (
                     match.get("strAwayTeam", "").lower() == team_name.lower()
                     and match.get("strHomeTeam", "").lower() == opponent_name.lower()
                 )
             ]
+
 
 match_store = MatchStore()

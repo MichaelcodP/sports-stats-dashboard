@@ -4,6 +4,7 @@ from app.data_store import match_store
 
 router = APIRouter()
 
+
 @router.get("/metrics/{team_name}")
 def get_team_metrics(
     team_name: str,
@@ -21,7 +22,8 @@ def get_team_metrics(
 
     # Filter matches by team
     team_matches = [
-        m for m in matches
+        m
+        for m in matches
         if m.get("strHomeTeam", "").lower() == team_name.lower()
         or m.get("strAwayTeam", "").lower() == team_name.lower()
     ]
@@ -32,7 +34,8 @@ def get_team_metrics(
     # Filter by opponent
     if opponent:
         team_matches = [
-            m for m in team_matches
+            m
+            for m in team_matches
             if m.get("strHomeTeam", "").lower() == opponent.lower()
             or m.get("strAwayTeam", "").lower() == opponent.lower()
         ]
@@ -41,17 +44,21 @@ def get_team_metrics(
     if match_type:
         if match_type.lower() == "home":
             team_matches = [
-                m for m in team_matches
+                m
+                for m in team_matches
                 if m.get("strHomeTeam", "").lower() == team_name.lower()
             ]
         elif match_type.lower() == "away":
             team_matches = [
-                m for m in team_matches
+                m
+                for m in team_matches
                 if m.get("strAwayTeam", "").lower() == team_name.lower()
             ]
 
     if not team_matches:
-        raise HTTPException(status_code=404, detail="No matches found with the specified filters")
+        raise HTTPException(
+            status_code=404, detail="No matches found with the specified filters"
+        )
 
     # Metrics calculation
     total_goals = 0
@@ -61,7 +68,6 @@ def get_team_metrics(
 
     for match in team_matches:
         home = match["strHomeTeam"]
-        away = match["strAwayTeam"]
         home_goals = int(match.get("intHomeScore") or 0)
         away_goals = int(match.get("intAwayScore") or 0)
 

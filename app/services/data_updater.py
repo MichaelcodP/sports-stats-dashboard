@@ -13,6 +13,7 @@ logger = logging.getLogger("data_updater")
 DEFAULT_TEAMS = ["Arsenal", "Chelsea", "Liverpool", "Brighton and Hove Albion"]
 TEAM_NAMES = os.getenv("TEAM_NAMES", ",".join(DEFAULT_TEAMS)).split(",")
 
+
 async def fetch_and_store_matches():
     service = TheSportsDBService()
     while True:
@@ -29,6 +30,7 @@ async def fetch_and_store_matches():
         except Exception as e:
             logger.error(f"[Updater] Error: {e}")
         await asyncio.sleep(INTERVAL_SECONDS)
+
 
 async def update_matches():
     service = TheSportsDBService()
