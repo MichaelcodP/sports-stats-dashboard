@@ -8,7 +8,7 @@ import time
 
 def setup_logging():
     root = _logging.getLogger()
-    level = os.getenv("LOG_LEVEL", "INFO")
+    level = os.getenv("LOG_LEVEL", "INFO").upper()
     root.setLevel(level)
     handler = _logging.StreamHandler()
     try:
