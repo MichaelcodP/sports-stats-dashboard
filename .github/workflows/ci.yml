@@ -25,7 +25,7 @@ jobs:
           pip install flake8 black
 
       - name: Run flake8
-        run: flake8 app tests --config=./.flake8
+        run: flake8 app tests
 
       - name: Run black --check
         run: black --check app tests
