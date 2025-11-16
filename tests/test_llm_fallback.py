@@ -51,7 +51,7 @@ async def test_all_providers_fail_raises():
     p1 = FakeProvider("p1", exc=Exception("first fail"))
     p2 = FakeProvider("p2", exc=Exception("second fail"))
 
-    svc = LLMService(providers=[p1, p2])
+    svc = LLMService(providers=[p1, p2], cache=InMemoryCache())
 
     match = MatchData(
         event_id="2",
