@@ -76,8 +76,15 @@ button:hover {
   background-color: #f9f9f9;
 }
 
-footer {
-  text-align: center;
-  margin-top: 40px;
-  color: #777;
+.model-analysis {
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+}
+
+.model-analysis h4 {
+  margin-top: 0;
+  color: #2c3e50;
 }

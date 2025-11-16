@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sports Stats Dashboard 🏆</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
@@ -27,12 +28,39 @@
           </form>
         </section>
 
+        <section class="search-section">
+          <h2>All Models Analysis</h2>
+          <form id="all-models-form">
+            <input
+              type="text"
+              id="team1"
+              placeholder="Team 1 (e.g., Arsenal)"
+              required
+            />
+            <input
+              type="text"
+              id="team2"
+              placeholder="Team 2 (e.g., Chelsea)"
+              required
+            />
+            <button type="submit">Analyze with All Models</button>
+          </form>
+        </section>
+
+        <section class="search-section">
+          <h2>Metrics</h2>
+          <form id="metrics-form">
+            <button type="submit">Get Metrics</button>
+          </form>
+        </section>
+
         <section class="results-section" id="results" style="display: none">
-          <h2>Analysis Results</h2>
+          <h2 id="results-title">Results</h2>
           <div id="loading" style="display: none">Loading...</div>
           <div id="team-info"></div>
           <div id="matches"></div>
           <div id="analysis"></div>
+          <div id="metrics"></div>
         </section>
       </main>
 

@@ -5,6 +5,42 @@ from app.data_store import match_store
 router = APIRouter()
 
 
+@router.get("/metrics")
+def get_system_metrics():
+    """
+    Get overall system metrics.
+    """
+    matches = match_store.get_all()
+
+    if not matches:
+        return {
+            "total_matches": 0,
+            "total_teams": 0,
+            "avg_goals_per_match": 0,
+            "total_goals": 0,
+        }
+
+    total_matches = len(matches)
+    teams = set()
+    total_goals = 0
+
+    for match in matches:
+        teams.add(match.get("strHomeTeam", ""))
+        teams.add(match.get("strAwayTeam", ""))
+        home_goals = int(match.get("intHomeScore") or 0)
+        away_goals = int(match.get("intAwayScore") or 0)
+        total_goals += home_goals + away_goals
+
+    return {
+        "total_matches": total_matches,
+        "total_teams": len(teams),
+        "avg_goals_per_match": (
+            round(total_goals / total_matches, 2) if total_matches > 0 else 0
+        ),
+        "total_goals": total_goals,
+    }
+
+
 @router.get("/metrics/{team_name}")
 def get_team_metrics(
     team_name: str,
