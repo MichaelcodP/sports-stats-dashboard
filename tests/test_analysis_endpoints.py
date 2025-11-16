@@ -114,14 +114,22 @@ async def test_analyze_team_by_name_endpoint(monkeypatch):
 
         data = response.json()
         assert data["team_name"] == "Arsenal"
-        assert data["team_id"] == "123"
+        assert data["country"] == "England"
+        assert data["sport"] is None  # Not set in fake
+        assert data["league"] is None  # Not set in fake
         assert "matches" in data
         assert len(data["matches"]) == 3  # Limited by our fake data
+        assert "analysis" in data
+        assert isinstance(data["analysis"], str)
 
         # Check structure of each match
         for match_data in data["matches"]:
-            assert "match" in match_data
-            assert "analysis" in match_data
+            assert "home_team" in match_data
+            assert "away_team" in match_data
+            assert "home_score" in match_data
+            assert "away_score" in match_data
+            assert "date" in match_data
+            assert "league" in match_data
 
 
 @pytest.mark.asyncio

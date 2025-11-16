@@ -23,6 +23,7 @@ async def analyze_team_last_matches_by_name(team_name: str):
         if not matches:
             raise HTTPException(status_code=404, detail="No matches found")
 
+        match_list = []
         analyses = []
         for m in matches:
             match_data = MatchData(
@@ -37,9 +38,38 @@ async def analyze_team_last_matches_by_name(team_name: str):
             )
 
             analysis = await llm_service.analyze_match(match_data)
-            analyses.append({"match": match_data, "analysis": analysis})
+            match_list.append(
+                {
+                    "home_team": match_data.home_team,
+                    "away_team": match_data.away_team,
+                    "home_score": match_data.home_score,
+                    "away_score": match_data.away_score,
+                    "date": match_data.date_event,
+                    "league": match_data.league,
+                }
+            )
+            analyses.append(analysis)
 
-        return {"team_name": team_name, "team_id": team.id, "matches": analyses}
+        # Combine analyses into one
+        overall_analysis = "\n\n".join(
+            [
+                f"Match: {m['strHomeTeam']} vs {m['strAwayTeam']}\n"
+                f"Summary: {a.summary}\n"
+                f"Key Insights: {', '.join(a.key_insights)}\n"
+                f"Performance Analysis: {a.performance_analysis}\n"
+                f"Prediction: {a.prediction or 'N/A'}"
+                for m, a in zip(matches, analyses)
+            ]
+        )
+
+        return {
+            "team_name": team.name,
+            "country": team.country,
+            "sport": team.sport,
+            "league": team.league,
+            "matches": match_list,
+            "analysis": overall_analysis,
+        }
 
     except HTTPException:
         raise

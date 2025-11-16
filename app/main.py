@@ -4,6 +4,9 @@ import os
 import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from app.routes import analysis, matches, metrics
 from app.routes.health import router as health_router
@@ -44,6 +47,12 @@ async def lifespan(app: FastAPI):
 # ----------------- FastAPI App -----------------
 app = FastAPI(title="Sports Stats API 🏆", lifespan=lifespan)
 
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Templates
+templates = Jinja2Templates(directory="templates")
+
 # ----------------- Routers -----------------
 app.include_router(matches.router, prefix="/api", tags=["Matches"])
 app.include_router(analysis.router, prefix="/api", tags=["Analysis"])
@@ -79,6 +88,6 @@ async def log_requests(request: Request, call_next):
 
 
 # ----------------- Root Endpoint -----------------
-@app.get("/")
-def root():
-    return {"message": "Sports Stats API is running 🏆"}
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
