@@ -13,6 +13,11 @@ llm_service = LLMService()
 logger = logging.getLogger(__name__)
 
 
+@router.get("/analyze/{team1}/{team2}")
+async def analyze_match_compat(team1: str, team2: str):
+    """Compatibility route used in tests."""
+    return await analyze_match(team1, team2)
+
 @router.get("/analyze/vs/{team1}/{team2}")
 async def analyze_match(team1: str, team2: str):
     """Analyze the latest match between two teams using LLM."""

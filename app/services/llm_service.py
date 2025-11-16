@@ -134,23 +134,21 @@ Analyze this match:
 {formatted_data}
 """
 
-        for name, prov in self.providers.items():
+        for prov in self.providers:
             try:
-
                 async def call():
                     return await prov.generate(prompt)
 
-                text = await retry_with_backoff(call, retries=2)
+                text = await retry_with_backoff(call, retries=2, base_delay=0.5)
                 analysis = self._parse_analysis(text)
 
                 await self.cache.set(cache_key, analysis.model_dump())
-
                 return analysis
 
             except Exception:
                 continue
 
-        raise RuntimeError("All providers failed")
+        raise RuntimeError("All LLM providers failed")
 
     def _parse_analysis(self, text: str) -> MatchAnalysis:
         text = (text or "").strip()
