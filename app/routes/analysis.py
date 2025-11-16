@@ -195,6 +195,33 @@ async def analyze_match(team1: str, team2: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/analyze/match/{match_id}")
+async def analyze_match_by_id(match_id: str):
+    """Analyze a specific match by its ID."""
+    logger.info(f"Endpoint called with match_id: {match_id}")
+    try:
+        match_data = await sports_api.get_match_by_id(match_id)
+        analysis = await llm_service.analyze_match(match_data)
+
+        return {
+            "match": {
+                "home_team": match_data.home_team,
+                "away_team": match_data.away_team,
+                "home_score": match_data.home_score,
+                "away_score": match_data.away_score,
+                "date": match_data.date_event,
+                "stadium": match_data.stadium,
+                "league": match_data.league,
+            },
+            "analysis": analysis,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/analyze/{team1}/{team2}")
 async def analyze_match_compat(team1: str, team2: str):
     """Compatibility route used in tests."""
