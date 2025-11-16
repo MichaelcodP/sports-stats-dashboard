@@ -12,3 +12,14 @@ class CacheService:
 
     async def set(self, key: str, value, ttl: int = 86400):
         await self.client.set(key, json.dumps(value), ex=ttl)
+
+
+class InMemoryCache:
+    def __init__(self):
+        self.store = {}
+
+    async def get(self, key: str):
+        return self.store.get(key)
+
+    async def set(self, key: str, value: str, ex: int | None = None):
+        self.store[key] = value

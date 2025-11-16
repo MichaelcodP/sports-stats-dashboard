@@ -25,9 +25,9 @@ logger = logging.getLogger(__name__)
 class LLMService:
     """LLM orchestration with caching + multi-provider support."""
 
-    def __init__(self, providers: Optional[List] = None):
+    def __init__(self, providers: Optional[List] = None, cache=None):
         self.data_processor = DataProcessor()
-        self.cache = CacheService()
+        self.cache = cache or CacheService()
 
         if providers is not None:
             self.providers = providers

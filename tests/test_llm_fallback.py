@@ -2,6 +2,7 @@ import pytest
 
 from app.services.llm_service import LLMService
 from app.models.schemas import MatchData, MatchAnalysis
+from app.services.cache import InMemoryCache
 
 
 class FakeProvider:
@@ -27,7 +28,7 @@ async def test_fallback_to_second_provider():
         text='{"summary":"OK","key_insights":[],"performance_analysis":"P","prediction":null}',
     )
 
-    svc = LLMService(providers=[p1, p2])
+    svc = LLMService(providers=[p1, p2], cache=InMemoryCache())
 
     match = MatchData(
         event_id="1",
