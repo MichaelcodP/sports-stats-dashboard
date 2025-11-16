@@ -1,18 +1,19 @@
 import os
 import json
 import logging
-from typing import Optional, List
+from typing import Optional, List, Dict
 from dotenv import load_dotenv
 
 from app.models.schemas import MatchAnalysis, MatchData
 from app.services.data_processor import DataProcessor
+from app.services.cache import CacheService
 
 from .llm_providers import (
     OpenAIProvider,
     GeminiProvider,
     GroqProvider,
-    FatalLLMError,
-    TransientLLMError,
+    # FatalLLMError,
+    # TransientLLMError,
     retry_with_backoff,
 )
 
@@ -22,139 +23,153 @@ logger = logging.getLogger(__name__)
 
 
 class LLMService:
-    """Orchestrates multiple LLM providers with retries and fallback."""
+    """LLM orchestration with caching + multi-provider support."""
 
-    def __init__(self, providers: Optional[List] = None):
-
+    def __init__(self, providers: Optional[List] = None, cache=None):
         self.data_processor = DataProcessor()
+        self.cache = cache or CacheService()
 
         if providers is not None:
-            # Allow injecting fake providers for tests
             self.providers = providers
             return
 
-        # Read keys from env
         openai_key = os.getenv("OPENAI_API_KEY")
         gemini_key = os.getenv("GEMINI_API_KEY")
         groq_key = os.getenv("GROQ_API_KEY")
 
-        mapping = {
+        self.providers = {
             "openai": OpenAIProvider(openai_key),
             "gemini": GeminiProvider(gemini_key),
             "groq": GroqProvider(groq_key),
         }
 
-        # Priority order e.g. "openai,gemini,groq" (default)
-        priority_env = os.getenv("LLM_PRIORITY", "openai,gemini,groq")
-        priority = [p.strip() for p in priority_env.split(",") if p.strip()]
+    async def analyze_with_all_models(self, match: MatchData) -> Dict:
+        """
+        Returns analysis from ALL LLM providers:
+        {
+            "openai": MatchAnalysis,
+            "gemini": MatchAnalysis,
+            "groq": MatchAnalysis
+        }
+        """
 
-        # Build providers in priority order (only include existing mapping keys)
-        self.providers = [mapping[p] for p in priority if p in mapping]
+        if not match.event_id:
+            raise ValueError("Match must have event_id for caching")
 
-    async def analyze_match(self, match: MatchData) -> MatchAnalysis:
-        """Try providers in order, using retry/backoff on transient errors."""
         formatted_data = self.data_processor.format_for_llm(match)
 
         prompt = f"""
-Respond with ONLY valid JSON matching this schema (no explanatory text):
+Respond with ONLY valid JSON matching:
 
 {{
   "summary": "<2-3 sentence summary>",
-  "key_insights": ["insight1", "insight2", "..."],
-  "performance_analysis": "<detailed text>",
-  "prediction": "<prediction string or null>"
+  "key_insights": ["insight1", "insight2"],
+  "performance_analysis": "<text>",
+  "prediction": "<text or null>"
 }}
 
-Now analyze this match:
+Analyze this match:
 {formatted_data}
 """
 
-        if not self.providers:
-            raise RuntimeError(
-                "No LLM providers configured (check env keys and LLM_PRIORITY)"
-            )
+        results = {}
 
-        # Try each provider sequentially. Use retry_with_backoff to retry transient failures.
+        # RUN ALL MODELS ONE BY ONE
+        for name, provider in self.providers.items():
+            cache_key = f"match:{match.event_id}:model:{name}"
+
+            # 1 — CACHE CHECK
+            cached = await self.cache.get(cache_key)
+            if cached:
+                logger.info(f"[CACHE HIT] model={name} event={match.event_id}")
+                results[name] = MatchAnalysis(**cached)
+                continue
+
+            logger.info(f"[CACHE MISS] model={name}")
+
+            # 2 — CALL LLM
+            try:
+
+                async def call():
+                    return await provider.generate(prompt)
+
+                raw = await retry_with_backoff(call, retries=2)
+
+                parsed = self._parse_analysis(raw)
+
+                # 3 — SAVE CACHE
+                await self.cache.set(cache_key, parsed.model_dump())
+
+                results[name] = parsed
+
+            except Exception as e:
+                logger.error(f"[LLM FAIL] {name}: {str(e)}")
+                results[name] = None
+
+        return results
+
+    async def analyze_match(self, match: MatchData) -> MatchAnalysis:
+        if not match.event_id:
+            raise ValueError("Match must have event_id for caching.")
+
+        cache_key = f"match:{match.event_id}:analysis"
+
+        cached = await self.cache.get(cache_key)
+        if cached:
+            return MatchAnalysis(**cached)
+
+        formatted_data = self.data_processor.format_for_llm(match)
+
+        prompt = f"""
+Respond with ONLY valid JSON matching:
+
+{{
+  "summary": "<2-3 sentence summary>",
+  "key_insights": ["insight1", "insight2"],
+  "performance_analysis": "<text>",
+  "prediction": "<text or null>"
+}}
+
+Analyze this match:
+{formatted_data}
+"""
+
         for prov in self.providers:
             try:
 
-                async def call() -> str:
-                    # provider.generate(prompt) is expected to raise TransientLLMError or FatalLLMError on problems
+                async def call():
                     return await prov.generate(prompt)
 
-                # specify retries (e.g., 2 retries => 3 attempts)
                 text = await retry_with_backoff(call, retries=2, base_delay=0.5)
-                # parse and return first successful response
-                return self._parse_analysis(text)
+                analysis = self._parse_analysis(text)
 
-            except FatalLLMError as e:
-                # non-retryable / provider won't help (e.g., quota, missing key)
-                logger.warning(
-                    "Provider %s fatal error: %s",
-                    getattr(prov, "name", str(prov)),
-                    str(e),
-                )
-                continue
-            except TransientLLMError as e:
-                # retries exhausted but provider failed transiently
-                logger.warning(
-                    "Provider %s transient failure after retries: %s",
-                    getattr(prov, "name", str(prov)),
-                    str(e),
-                )
-                continue
-            except Exception as e:
-                # unexpected error from provider; skip to next
-                logger.exception(
-                    "Provider %s unexpected error: %s",
-                    getattr(prov, "name", str(prov)),
-                    str(e),
-                )
+                await self.cache.set(cache_key, analysis.model_dump())
+                return analysis
+
+            except Exception:
                 continue
 
-        # If all providers fail:
-        logger.error("All LLM providers failed.")
-        raise RuntimeError("All LLM providers failed.")
+        raise RuntimeError("All LLM providers failed")
 
     def _parse_analysis(self, text: str) -> MatchAnalysis:
-        """
-        Parse text returned by LLM. Prefer JSON text; fallback to extracting the first JSON object
-        from the response if there is extra commentary around it.
-        """
         text = (text or "").strip()
         if not text:
-            raise ValueError("Empty response from LLM provider")
+            raise ValueError("Empty LLM response")
 
-        # Try JSON directly first
         try:
             data = json.loads(text)
         except json.JSONDecodeError:
-            # Fallback: find the first {...} block and parse that
             start = text.find("{")
             end = text.rfind("}") + 1
-            if start == -1 or end == 0:
-                raise ValueError("No JSON found in LLM response")
-            json_text = text[start:end]
-            try:
-                data = json.loads(json_text)
-            except json.JSONDecodeError as e:
-                raise ValueError("Failed to decode JSON from LLM response") from e
+            data = json.loads(text[start:end])
 
-        # Coerce fields safely
-        summary = data.get("summary", "") if isinstance(data, dict) else ""
-        key_insights = data.get("key_insights", []) if isinstance(data, dict) else []
-        if not isinstance(key_insights, list):
-            # defensive: coerce single string into list
-            key_insights = [str(key_insights)]
-        key_insights = [str(i).strip() for i in key_insights if str(i).strip()]
-        performance_analysis = (
-            data.get("performance_analysis", "") if isinstance(data, dict) else ""
-        )
-        prediction = data.get("prediction") if isinstance(data, dict) else None
+        key_insights = data.get("key_insights", [])
+        if isinstance(key_insights, str):
+            key_insights = [key_insights]
 
         return MatchAnalysis(
-            summary=summary,
+            summary=data.get("summary", ""),
             key_insights=key_insights,
-            performance_analysis=performance_analysis,
-            prediction=prediction,
+            performance_analysis=data.get("performance_analysis", ""),
+            prediction=data.get("prediction"),
         )

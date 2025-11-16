@@ -24,6 +24,8 @@ async def fetch_and_store_matches():
                 team = await service.search_team(team_name)
                 matches = await service.get_recent_matches(team.id, limit=10)
                 all_matches.extend(matches)
+                # Add delay to avoid rate limiting
+                await asyncio.sleep(1)
             if all_matches:
                 match_store.update_matches(all_matches)
                 logger.info(f"[Updater] Stored {len(all_matches)} matches.")
@@ -45,6 +47,8 @@ async def update_matches():
             all_matches.extend(matches)
         except Exception as e:
             logger.error(f"[Updater] Error fetching matches for {team_name}: {e}")
+        # Add delay to avoid rate limiting
+        await asyncio.sleep(1)
 
     await service.close()
     logger.info(f"[Updater] Total fetched matches: {len(all_matches)}")

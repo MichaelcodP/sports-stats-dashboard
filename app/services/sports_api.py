@@ -1,7 +1,7 @@
 import httpx
 from app.models.schemas import TeamInfo, MatchData
 from fastapi import HTTPException
-from functools import lru_cache
+import logging
 
 
 class TheSportsDBService:
@@ -11,12 +11,12 @@ class TheSportsDBService:
 
     def __init__(self):
         self.client = httpx.AsyncClient(timeout=10.0)
+        self.logger = logging.getLogger("sports-api")
 
     async def close(self):
         """Close the HTTP client."""
         await self.client.aclose()
 
-    @lru_cache(maxsize=128)
     async def search_team(self, team_name: str) -> TeamInfo:
         """Search for a team by name."""
         try:
@@ -25,6 +25,7 @@ class TheSportsDBService:
             )
             response.raise_for_status()
             data = response.json()
+            self.logger.info(f"Search team response for {team_name}: {data}")
 
             if not data.get("teams"):
                 raise HTTPException(
@@ -45,7 +46,6 @@ class TheSportsDBService:
                 status_code=500, detail=f"Error fetching team: {str(e)}"
             )
 
-    @lru_cache(maxsize=128)
     async def get_latest_events(self, team_id: str) -> list:
         """Get latest events for a team."""
         try:
@@ -61,7 +61,6 @@ class TheSportsDBService:
                 status_code=500, detail=f"Error fetching events: {str(e)}"
             )
 
-    @lru_cache(maxsize=128)
     async def get_next_events(self, team_id: str) -> list:
         """Get upcoming events for a team."""
         try:
@@ -143,6 +142,7 @@ class TheSportsDBService:
             )
             response.raise_for_status()
             data = response.json()
+            self.logger.info(f"API response for team_id {team_id}: {data}")
 
             matches = data.get("results", []) or []
             return matches[:limit]
@@ -150,3 +150,38 @@ class TheSportsDBService:
             raise HTTPException(
                 status_code=500, detail=f"Error fetching recent matches: {str(e)}"
             )
+
+    async def get_head_to_head(self, team1_id: str, team2_id: str, limit: int = 5):
+        """Get last several matches between two teams."""
+        response = await self.client.get(
+            f"{self.BASE_URL}/eventslast.php", params={"id": team1_id}
+        )
+        response.raise_for_status()
+        data = response.json()
+        matches = data.get("results", []) or []
+
+        # Debugging log to inspect the API response
+        self.logger.info("API Response for head-to-head matches: %s", data)
+
+        # Ensure matches is a list of dictionaries
+        if not isinstance(matches, list) or not all(
+            isinstance(m, dict) for m in matches
+        ):
+            self.logger.error("Unexpected data format for matches: %s", matches)
+            raise ValueError("Invalid data format received from API")
+
+        # Check for specific error messages in the API response
+        if isinstance(data, dict) and data.get("results") == "Invalid Team ID passed":
+            self.logger.error(
+                "Invalid Team ID provided: team1_id=%s, team2_id=%s", team1_id, team2_id
+            )
+            raise ValueError("One or both team IDs are invalid.")
+
+        result = []
+        for m in matches:
+            if m.get("idHomeTeam") == team2_id or m.get("idAwayTeam") == team2_id:
+                result.append(m)
+                if len(result) >= limit:
+                    break
+
+        return result
