@@ -46,6 +46,35 @@ class TheSportsDBService:
                 status_code=500, detail=f"Error fetching team: {str(e)}"
             )
 
+    async def search_team_by_id(self, team_id: str) -> TeamInfo:
+        """Search for a team by ID."""
+        try:
+            response = await self.client.get(
+                f"{self.BASE_URL}/lookupteam.php", params={"id": team_id}
+            )
+            response.raise_for_status()
+            data = response.json()
+            self.logger.info(f"Search team by ID response for {team_id}: {data}")
+
+            if not data.get("teams"):
+                raise HTTPException(
+                    status_code=404, detail=f"Team with ID '{team_id}' not found"
+                )
+
+            team = data["teams"][0]
+            return TeamInfo(
+                id=team["idTeam"],
+                name=team["strTeam"],
+                country=team.get("strCountry"),
+                sport=team.get("strSport"),
+                league=team.get("strLeague"),
+            )
+
+        except httpx.HTTPError as e:
+            raise HTTPException(
+                status_code=500, detail=f"Error fetching team: {str(e)}"
+            )
+
     async def get_latest_events(self, team_id: str) -> list:
         """Get latest events for a team."""
         try:
@@ -185,3 +214,39 @@ class TheSportsDBService:
                     break
 
         return result
+
+    async def get_match_by_id(self, match_id: str) -> MatchData:
+        """Get match data by event ID."""
+        try:
+            response = await self.client.get(
+                f"{self.BASE_URL}/lookupevent.php", params={"id": match_id}
+            )
+            response.raise_for_status()
+            data = response.json()
+            self.logger.info(f"Lookup event response for {match_id}: {data}")
+
+            if not data.get("events"):
+                raise HTTPException(
+                    status_code=404, detail=f"Match with ID '{match_id}' not found"
+                )
+
+            event = data["events"][0]
+            return MatchData(
+                event_id=event["idEvent"],
+                home_team=event["strHomeTeam"],
+                away_team=event["strAwayTeam"],
+                home_score=(
+                    int(event["intHomeScore"]) if event.get("intHomeScore") else None
+                ),
+                away_score=(
+                    int(event["intAwayScore"]) if event.get("intAwayScore") else None
+                ),
+                date_event=event["dateEvent"],
+                stadium=event.get("strVenue"),
+                league=event.get("strLeague"),
+            )
+
+        except httpx.HTTPError as e:
+            raise HTTPException(
+                status_code=500, detail=f"Error fetching match: {str(e)}"
+            )

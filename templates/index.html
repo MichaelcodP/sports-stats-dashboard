@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sports Stats Dashboard 🏆</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Sports Stats Dashboard 🏆</h1>
+        <p>Analyze football teams and their recent matches</p>
+      </header>
+
+      <main>
+        <section class="search-section">
+          <h2>Team Analysis</h2>
+          <form id="team-form">
+            <input
+              type="text"
+              id="team-name"
+              placeholder="Enter team name (e.g., Arsenal)"
+              required
+            />
+            <button type="submit">Analyze Team</button>
+          </form>
+        </section>
+
+        <section class="search-section">
+          <h2>All Models Analysis</h2>
+          <form id="all-models-form">
+            <input
+              type="text"
+              id="team1"
+              placeholder="Team 1 (e.g., Arsenal)"
+              required
+            />
+            <input
+              type="text"
+              id="team2"
+              placeholder="Team 2 (e.g., Chelsea)"
+              required
+            />
+            <button type="submit">Analyze with All Models</button>
+          </form>
+        </section>
+
+        <section class="search-section">
+          <h2>Metrics</h2>
+          <form id="metrics-form">
+            <button type="submit">Get Metrics</button>
+          </form>
+        </section>
+
+        <section class="results-section" id="results" style="display: none">
+          <h2 id="results-title">Results</h2>
+          <div id="loading" style="display: none">Loading...</div>
+          <div id="team-info"></div>
+          <div id="matches"></div>
+          <div id="analysis"></div>
+          <div id="metrics"></div>
+        </section>
+      </main>
+
+      <footer>
+        <p>Powered by FastAPI & TheSportsDB</p>
+      </footer>
+    </div>
+
+    <script src="/static/script.js"></script>
+  </body>
+</html>
