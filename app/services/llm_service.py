@@ -136,6 +136,7 @@ Analyze this match:
 
         for prov in self.providers:
             try:
+
                 async def call():
                     return await prov.generate(prompt)
 
