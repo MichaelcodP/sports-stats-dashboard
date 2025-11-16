@@ -33,11 +33,11 @@ logger = logging.getLogger("sports-stats-app")
 # ----------------- Lifespan Handler -----------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Код, що виконується при старті сервера
     logger.info("Starting background tasks...")
+    # Delay to avoid rate limits on startup
+    await asyncio.sleep(5)
     asyncio.create_task(fetch_and_store_matches())
     yield
-    # Код, що виконується при завершенні сервера (закриття ресурсів можна додати тут)
     logger.info("Application shutdown complete.")
 
 
