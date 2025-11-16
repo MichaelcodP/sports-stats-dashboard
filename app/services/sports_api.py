@@ -46,6 +46,35 @@ class TheSportsDBService:
                 status_code=500, detail=f"Error fetching team: {str(e)}"
             )
 
+    async def search_team_by_id(self, team_id: str) -> TeamInfo:
+        """Search for a team by ID."""
+        try:
+            response = await self.client.get(
+                f"{self.BASE_URL}/lookupteam.php", params={"id": team_id}
+            )
+            response.raise_for_status()
+            data = response.json()
+            self.logger.info(f"Search team by ID response for {team_id}: {data}")
+
+            if not data.get("teams"):
+                raise HTTPException(
+                    status_code=404, detail=f"Team with ID '{team_id}' not found"
+                )
+
+            team = data["teams"][0]
+            return TeamInfo(
+                id=team["idTeam"],
+                name=team["strTeam"],
+                country=team.get("strCountry"),
+                sport=team.get("strSport"),
+                league=team.get("strLeague"),
+            )
+
+        except httpx.HTTPError as e:
+            raise HTTPException(
+                status_code=500, detail=f"Error fetching team: {str(e)}"
+            )
+
     async def get_latest_events(self, team_id: str) -> list:
         """Get latest events for a team."""
         try:

@@ -13,37 +13,8 @@ llm_service = LLMService()
 logger = logging.getLogger(__name__)
 
 
-@router.get("/analyze/{team1}/{team2}")
-async def analyze_match_compat(team1: str, team2: str):
-    """Compatibility route used in tests."""
-    return await analyze_match(team1, team2)
-
-
-@router.get("/analyze/vs/{team1}/{team2}")
-async def analyze_match(team1: str, team2: str):
-    """Analyze the latest match between two teams using LLM."""
-    try:
-        match_data = await sports_api.get_match_between_teams(team1, team2)
-        if not match_data:
-            raise HTTPException(status_code=404, detail="No match data found")
-
-        analysis = await llm_service.analyze_match(match_data)
-
-        return {
-            "teams": f"{match_data.home_team} vs {match_data.away_team}",
-            "date": match_data.date_event,
-            "stadium": match_data.stadium,
-            "llm_analysis": analysis.model_dump(),
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @router.get("/analyze/team/{team_name}")
-async def analyze_team_last_matches(team_name: str):
+async def analyze_team_last_matches_by_name(team_name: str):
     """Analyze last 5 matches of a team."""
     logger.info(f"Endpoint called with team_name: {team_name}")
     try:
@@ -69,6 +40,44 @@ async def analyze_team_last_matches(team_name: str):
             analyses.append({"match": match_data, "analysis": analysis})
 
         return {"team_name": team_name, "team_id": team.id, "matches": analyses}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/analyze/team/id/{team_id}")
+async def analyze_team_last_matches(team_id: str):
+    """Analyze last 5 matches of a team."""
+    logger.info(f"Endpoint called with team_id: {team_id}")
+    try:
+        team = await sports_api.search_team_by_id(team_id)
+        matches = await sports_api.get_recent_matches(team_id, limit=5)
+        if not matches:
+            raise HTTPException(status_code=404, detail="No matches found")
+
+        analyses = []
+        for m in matches:
+            match_data = MatchData(
+                event_id=m["idEvent"],
+                home_team=m["strHomeTeam"],
+                away_team=m["strAwayTeam"],
+                home_score=int(m["intHomeScore"]) if m.get("intHomeScore") else None,
+                away_score=int(m["intAwayScore"]) if m.get("intAwayScore") else None,
+                date_event=m["dateEvent"],
+                stadium=m.get("strVenue"),
+                league=m.get("strLeague"),
+            )
+
+            analysis = await llm_service.analyze_match(match_data)
+            analyses.append({"match": match_data, "analysis": analysis})
+
+        return {
+            "team_id": team_id,
+            "team_name": team.name if hasattr(team, "name") else None,
+            "matches": analyses,
+        }
 
     except HTTPException:
         raise
@@ -131,3 +140,32 @@ async def analyze_all_models(team1: str, team2: str):
 
     except Exception as e:
         raise HTTPException(500, detail=str(e))
+
+
+@router.get("/analyze/vs/{team1}/{team2}")
+async def analyze_match(team1: str, team2: str):
+    """Analyze the latest match between two teams using LLM."""
+    try:
+        match_data = await sports_api.get_match_between_teams(team1, team2)
+        if not match_data:
+            raise HTTPException(status_code=404, detail="No match data found")
+
+        analysis = await llm_service.analyze_match(match_data)
+
+        return {
+            "teams": f"{match_data.home_team} vs {match_data.away_team}",
+            "date": match_data.date_event,
+            "stadium": match_data.stadium,
+            "llm_analysis": analysis.model_dump(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/analyze/{team1}/{team2}")
+async def analyze_match_compat(team1: str, team2: str):
+    """Compatibility route used in tests."""
+    return await analyze_match(team1, team2)

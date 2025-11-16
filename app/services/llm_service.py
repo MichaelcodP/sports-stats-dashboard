@@ -30,7 +30,12 @@ class LLMService:
         self.cache = cache or CacheService()
 
         if providers is not None:
-            self.providers = providers
+            if isinstance(providers, list):
+                self.providers = {
+                    f"provider_{i}": prov for i, prov in enumerate(providers)
+                }
+            else:
+                self.providers = providers
             return
 
         openai_key = os.getenv("OPENAI_API_KEY")
@@ -134,7 +139,7 @@ Analyze this match:
 {formatted_data}
 """
 
-        for prov in self.providers:
+        for prov in self.providers.values():
             try:
 
                 async def call():

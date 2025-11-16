@@ -78,21 +78,20 @@ class GeminiProvider(BaseProvider):
     async def generate(self, prompt: str) -> str:
         if not self.api_key:
             raise FatalLLMError("Gemini key not provided")
-        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
-        headers = {"Authorization": f"Bearer {self.api_key}"}
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={self.api_key}"
         payload = {"contents": [{"parts": [{"text": prompt}]}]}
+
         try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.post(
-                    url, headers=headers, json=payload, timeout=15.0
-                )
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(url, json=payload)
                 resp.raise_for_status()
-                result = resp.json()
-                text = result["candidates"][0]["content"]["parts"][0]["text"]
-                return text.strip()
+                data = resp.json()
+
+                return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+
         except httpx.HTTPStatusError as e:
-            code = e.response.status_code
-            if code >= 500:
+            if e.response.status_code >= 500:
                 raise TransientLLMError(str(e))
             raise FatalLLMError(str(e))
         except Exception as e:
@@ -108,25 +107,25 @@ class GroqProvider(BaseProvider):
     async def generate(self, prompt: str) -> str:
         if not self.api_key:
             raise FatalLLMError("Groq key not provided")
-        url = "https://api.groq.com/v1/chat/completions"
-        headers = {"Authorization": f"Bearer {self.api_key}"}
-        payload = {
-            "model": "mixtral-8x7b-32768",
-            "messages": [
-                {"role": "system", "content": "You are a professional soccer analyst."},
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": 0.7,
-            "max_tokens": 500,
+
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
         }
+
+        payload = {
+            "model": "llama3-70b-8192",
+            "messages": [{"role": "user", "content": prompt}],
+        }
+
         try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.post(
-                    url, headers=headers, json=payload, timeout=15.0
-                )
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(url, headers=headers, json=payload)
                 resp.raise_for_status()
-                result = resp.json()
-                return result["choices"][0]["message"]["content"].strip()
+                data = resp.json()
+                return data["choices"][0]["message"]["content"].strip()
+
         except httpx.HTTPStatusError as e:
             if e.response.status_code >= 500:
                 raise TransientLLMError(str(e))
