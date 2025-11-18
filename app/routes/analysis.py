@@ -30,8 +30,16 @@ async def analyze_team_last_matches_by_name(team_name: str):
                 event_id=m["idEvent"],
                 home_team=m["strHomeTeam"],
                 away_team=m["strAwayTeam"],
-                home_score=int(m["intHomeScore"]) if m.get("intHomeScore") else None,
-                away_score=int(m["intAwayScore"]) if m.get("intAwayScore") else None,
+                home_score=(
+                    int(m["intHomeScore"])
+                    if m.get("intHomeScore") is not None
+                    else None
+                ),
+                away_score=(
+                    int(m["intAwayScore"])
+                    if m.get("intAwayScore") is not None
+                    else None
+                ),
                 date_event=m["dateEvent"],
                 stadium=m.get("strVenue"),
                 league=m.get("strLeague"),
@@ -93,8 +101,16 @@ async def analyze_team_last_matches(team_id: str):
                 event_id=m["idEvent"],
                 home_team=m["strHomeTeam"],
                 away_team=m["strAwayTeam"],
-                home_score=int(m["intHomeScore"]) if m.get("intHomeScore") else None,
-                away_score=int(m["intAwayScore"]) if m.get("intAwayScore") else None,
+                home_score=(
+                    int(m["intHomeScore"])
+                    if m.get("intHomeScore") is not None
+                    else None
+                ),
+                away_score=(
+                    int(m["intAwayScore"])
+                    if m.get("intAwayScore") is not None
+                    else None
+                ),
                 date_event=m["dateEvent"],
                 stadium=m.get("strVenue"),
                 league=m.get("strLeague"),
@@ -132,8 +148,16 @@ async def analyze_head_to_head(team1_name: str, team2_name: str):
                 event_id=m["idEvent"],
                 home_team=m["strHomeTeam"],
                 away_team=m["strAwayTeam"],
-                home_score=int(m["intHomeScore"]) if m.get("intHomeScore") else None,
-                away_score=int(m["intAwayScore"]) if m.get("intAwayScore") else None,
+                home_score=(
+                    int(m["intHomeScore"])
+                    if m.get("intHomeScore") is not None
+                    else None
+                ),
+                away_score=(
+                    int(m["intAwayScore"])
+                    if m.get("intAwayScore") is not None
+                    else None
+                ),
                 date_event=m["dateEvent"],
                 stadium=m.get("strVenue"),
                 league=m.get("strLeague"),

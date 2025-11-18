@@ -24,12 +24,14 @@ A FastAPI-based application for analyzing sports matches using external APIs and
 
 2. Install dependencies:
    python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   source venv/bin/activate # On Windows: venv\Scripts\activate
    pip install -r requirements.txt
 
 3. Set environment variables:
-   - `SPORTS_API_KEY`: Your TheSportsDB API key.
-   - `TEAM_NAMES`: Comma-separated list of team names to fetch data for (e.g., `Arsenal,Chelsea,Liverpool`).
+   - `THESPORTSDB_API_KEY`: Your TheSportsDB API key (get one at https://www.thesportsdb.com/api.php)
+   - `OPENAI_API_KEY`: Your OpenAI API key
+   - `GEMINI_API_KEY`: Your Google Gemini API key
+   - `GROQ_API_KEY`: Your Groq API key
 
 ## Running the Application
 

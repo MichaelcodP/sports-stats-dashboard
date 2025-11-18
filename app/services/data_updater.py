@@ -21,11 +21,17 @@ async def fetch_and_store_matches():
         try:
             all_matches = []
             for team_name in TEAM_NAMES:
-                team = await service.search_team(team_name)
-                matches = await service.get_recent_matches(team.id, limit=10)
-                all_matches.extend(matches)
-                # Add delay to avoid rate limiting
-                await asyncio.sleep(1)
+                try:
+                    team = await service.search_team(team_name)
+                    matches = await service.get_recent_matches(team.id, limit=10)
+                    all_matches.extend(matches)
+                    # Add delay to avoid rate limiting
+                    await asyncio.sleep(1)
+                except Exception as e:
+                    logger.warning(
+                        f"[Updater] Failed to fetch data for {team_name}: {e}"
+                    )
+                    continue
             if all_matches:
                 match_store.update_matches(all_matches)
                 logger.info(f"[Updater] Stored {len(all_matches)} matches.")

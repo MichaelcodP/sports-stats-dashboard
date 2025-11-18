@@ -37,9 +37,12 @@ logger = logging.getLogger("sports-stats-app")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting background tasks...")
-    # Delay to avoid rate limits on startup
-    await asyncio.sleep(5)
-    asyncio.create_task(fetch_and_store_matches())
+    try:
+        # Delay to avoid rate limits on startup
+        await asyncio.sleep(5)
+        asyncio.create_task(fetch_and_store_matches())
+    except Exception as e:
+        logger.error(f"Failed to start background tasks: {e}")
     yield
     logger.info("Application shutdown complete.")
 
