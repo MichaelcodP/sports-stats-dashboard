@@ -1,6 +1,6 @@
 # Sports Stats Dashboard
 
-A comprehensive FastAPI-based sports analytics dashboard that leverages TheSportsDB API for match data and integrates multiple Large Language Models (OpenAI GPT, Google Gemini, and Groq) for intelligent match analysis. Features a web-based UI, robust error handling with mock data fallbacks, and Redis caching for performance.
+A FastAPI-based sports analytics dashboard that leverages TheSportsDB API for match data and integrates multiple Large Language Models (OpenAI GPT, Google Gemini, and Groq) for intelligent match analysis. Features a web-based UI, robust error handling with mock data fallbacks, and Redis caching for performance.
 
 ## Features
 
@@ -104,7 +104,6 @@ The web dashboard provides:
 - **Team Analysis**: Analyze recent performance of any Premier League team
 - **All Models Comparison**: Compare insights from OpenAI, Gemini, and Groq for match analysis
 - **Metrics Dashboard**: View system-wide statistics and team-specific metrics
-- **Responsive Design**: Works on desktop and mobile devices
 
 ## Testing
 
